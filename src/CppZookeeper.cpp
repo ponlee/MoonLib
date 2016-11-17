@@ -39,8 +39,7 @@ extern "C"
 {
     struct watcher_object_list_t;
     watcher_object_list_t *collectWatchers(zhandle_t *zh, int type, char *path);
-    void 
-(watcher_object_list_t* list);
+    void destroy_watcher_object_list(watcher_object_list_t* list);
 }
 }
 #else
