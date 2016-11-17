@@ -1,5 +1,5 @@
 #ifndef __CYGWIN__
-#include "zookeeper_manager.h"
+#include "CppZookeeper.h"
 
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -30,7 +30,7 @@ CppLog g_cpp_log_stdout;
 #endif
 #define DEBUG_LOG(a,b,format,...)  Log((CPP_LOG_INSTANCE), CppLog::DEBUG, format, ##__VA_ARGS__)
 
-// 需要在这里加入destroy_watcher_object_list和collectWatchers函数声明，并且在zk_hashtable.c中去掉destroy_watcher_object_list函数的static限定符
+// 需要在这里加入destroy_watcher_object_list和collectWatchers函数声明，并且在zk_hashtable.c中去掉destroy_watcher_object_list函数的static限定符后重新编译Zookeeper API
 // 如果不想修改zk源代码，也可以自己参考zk_hashtable.c实现一份
 // 这样可以更好保持和源代码的一致性
 namespace zookeeper
@@ -39,7 +39,8 @@ extern "C"
 {
     struct watcher_object_list_t;
     watcher_object_list_t *collectWatchers(zhandle_t *zh, int type, char *path);
-    void destroy_watcher_object_list(watcher_object_list_t* list);
+    void 
+(watcher_object_list_t* list);
 }
 }
 #else

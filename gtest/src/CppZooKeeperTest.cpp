@@ -17,7 +17,7 @@
 #include <zookeeper.h>
 #include <zk_adaptor.h>
 
-#include <zookeeper_manager.h>
+#include <CppZookeeper.h>
 
 #include <CppLog.h>
 #include <CppNet.h>

@@ -1,5 +1,5 @@
-#ifndef _ZOOKEEPER_MANAGER_H_
-#define _ZOOKEEPER_MANAGER_H_
+#ifndef _CPP_ZOOKEEPER_H_
+#define _CPP_ZOOKEEPER_H_
 #ifndef __CYGWIN__
 
 #include <zookeeper.h>
