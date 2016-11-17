@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ZkConf>
+    <Root>/zk_test</Root>
+    <Hosts>127.0.0.1:2181</Hosts>
+</ZkConf>

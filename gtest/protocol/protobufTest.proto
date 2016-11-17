@@ -1,0 +1,20 @@
+package ProtobufTest;
+
+message ProtobufTestRequest
+{
+    required string string_value = 1;
+    required int32 int32_value = 2;
+    required uint32 uint32_value = 3;
+    optional int32 op_value = 4;
+};
+
+message ProtobufTestResponse
+{
+    required string res = 1;
+    repeated uint32 code = 2;
+};
+
+service ProtobufTestService 
+{
+    rpc Echo(ProtobufTestRequest) returns(ProtobufTestResponse); 
+};
