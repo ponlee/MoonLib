@@ -1383,7 +1383,7 @@ void ZookeeperManager::InnerWatcher(zhandle_t *zh, int type, int state,
         return;
     }
 
-    // 要删除的Watch Type的掩码
+    // 要删除的Watch Type的掩码，只有这个Watcher要被删除的时候才会使用到
     uint8_t stop_watcher_type_mask = 0;
 
     /* 自动注册Watcher，根据注册时调用的操作类型来 */
@@ -1466,12 +1466,14 @@ void ZookeeperManager::InnerWatcher(zhandle_t *zh, int type, int state,
             return;
         }
 
-        // TODO delete事件不注册Get和GetChildren
         // Global类型，表示使用的是默认的Watcher，通过type和abs_path来判断使用说明方式注册
-        if (type == ZOO_CREATED_EVENT || type == ZOO_DELETED_EVENT || type == ZOO_CHANGED_EVENT)
+        // 如果是节点变更，优先使用Exists注册，再使用Get注册
+        // 如果是节点被删除，判断是否使用Exists注册过，如果有，则只注册Exists事件，其他事件清掉
+        // 如果是节点创建，使用Exists注册
+        // 如果是子节点变更，使用GetChildren注册
+
+        if (type == ZOO_CHANGED_EVENT)
         {
-            // 本节点事件，检查是exist或者get，重新注册
-            // 优先EXIST
             if ((it->second & WATCHER_EXIST) == WATCHER_EXIST)
             {
                 ret = manager.Exist(abs_path, NULL, 1);
@@ -1486,6 +1488,7 @@ void ZookeeperManager::InnerWatcher(zhandle_t *zh, int type, int state,
             }
             else if ((it->second & WATCHER_GET) == WATCHER_GET)
             {
+                // TODO 看是否要带数据给用户的Watcher
                 char buf;
                 int buflen = 1;
                 ret = manager.Get(abs_path, &buf, &buflen, NULL, 1);
@@ -1493,8 +1496,62 @@ void ZookeeperManager::InnerWatcher(zhandle_t *zh, int type, int state,
             }
             else
             {
-                // 不匹配路径对应的全局Watcher类型，可能是最后一次调用，直接返回，不调用用户的Watcher
-                return;
+                // 不匹配路径对应的全局Watcher类型，停止Exists和Get类型重注册
+                p_context->m_is_stop = true;
+                stop_watcher_type_mask = ~WATCHER_EXIST;
+            }
+        }
+        else if (type == ZOO_DELETED_EVENT)
+        {
+            if ((it->second & WATCHER_EXIST) == WATCHER_EXIST)
+            {
+                // 删掉GetChildren事件
+                it->second = WATCHER_EXIST;
+                ret = manager.Exist(abs_path, NULL, 1);
+
+                // 节点不存在，注册Watcher也是OK的
+                if (ret == ZNONODE)
+                {
+                    ret = ZOK;
+                }
+
+                stop_watcher_type_mask = ~WATCHER_EXIST;
+            }
+            else
+            {
+                // 没有Exists事件，停止所有类型重注册
+                p_context->m_is_stop = true;
+                stop_watcher_type_mask = ~WATCHER_EXIST & ~WATCHER_GET_CHILDREN;
+            }
+        }
+        else if (type == ZOO_CREATED_EVENT)
+        {
+            if ((it->second & WATCHER_EXIST) == WATCHER_EXIST)
+            {
+                ret = manager.Exist(abs_path, NULL, 1);
+
+                // 节点不存在，注册Watcher也是OK的
+                if (ret == ZNONODE)
+                {
+                    ret = ZOK;
+                }
+
+                stop_watcher_type_mask = ~WATCHER_EXIST;
+            }
+            else if ((it->second & WATCHER_GET) == WATCHER_GET)
+            {
+                // 其实这里正常情况是进不来的，不过也放在这里好了
+                // TODO 看是否要带数据给用户的Watcher
+                char buf;
+                int buflen = 1;
+                ret = manager.Get(abs_path, &buf, &buflen, NULL, 1);
+                stop_watcher_type_mask = ~WATCHER_GET;
+            }
+            else
+            {
+                // 不匹配路径对应的全局Watcher类型，停止Exists和Get类型重注册
+                p_context->m_is_stop = true;
+                stop_watcher_type_mask = ~WATCHER_EXIST;
             }
         }
         else if (type == ZOO_CHILD_EVENT)
@@ -1508,13 +1565,14 @@ void ZookeeperManager::InnerWatcher(zhandle_t *zh, int type, int state,
             }
             else
             {
-                // 不匹配路径对应的全局Watcher类型，可能是最后一次调用，直接返回，不调用用户的Watcher
-                return;
+                // 不匹配路径对应的全局Watcher类型，停止GetChildren类型重注册
+                p_context->m_is_stop = true;
+                stop_watcher_type_mask = ~WATCHER_GET_CHILDREN;
             }
         }
         else
         {
-            // Nothing
+            // 无操作，直接透传给全局Watcher
         }
 
         if (ret != ZOK)
@@ -1524,8 +1582,10 @@ void ZookeeperManager::InnerWatcher(zhandle_t *zh, int type, int state,
         }
     }
 
-    // 删除指定节点的Watcher，回调返回true表示要删除这个Watcher
-    if ((*p_context->m_watcher_fun)(manager, type, state, abs_path))
+    // 调用用户的Watcher
+    // 删除指定节点的Watcher，回调返回true或者之前流程将p_context->m_is_stop置为true表示要删除这个Watcher
+    // 在get和get_children类型中，如果节点被删除了，那么也会停止重注册
+    if ((*p_context->m_watcher_fun)(manager, type, state, abs_path) || p_context->m_is_stop)
     {
         if (p_context->m_watcher_type == ZookeeperCtx::GLOBAL)
         {

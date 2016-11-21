@@ -58,4 +58,57 @@ TEST(CppBigNum, CppBigNumTestOperator)
             }
         }
     }
+
+    ASSERT_EQ(CppBigNum("189627391243132112356412332112563341892313212136512743681123231126653419862436125131629874398124362311233211238964")
+              * CppBigNum("56124135641123231165243654126354113221386127489763524513223416231345657456988746451673241352323148962436"),
+              "10642673427401890287959143328411391642189930927246419475009998895455345122848209235404866983967924237303456059052419544157437954862459572950100014649960672276296454977189535827118789145330347503954873558823630655556304");
+}
+
+TEST(CppBigNum, CppBigNumProTestCompare)
+{
+    EXPECT_TRUE(CppBigNumPro(2) > CppBigNumPro(-1));
+    EXPECT_FALSE(CppBigNumPro(-2) > CppBigNumPro(-1));
+    EXPECT_TRUE(CppBigNumPro(-2) > CppBigNumPro(-3));
+    EXPECT_FALSE(CppBigNumPro(-2) > CppBigNumPro(1));
+    EXPECT_TRUE(CppBigNumPro(2) > CppBigNumPro(1));
+    EXPECT_FALSE(CppBigNumPro(2) > CppBigNumPro(2));
+    EXPECT_FALSE(CppBigNumPro(2) > CppBigNumPro(3));
+
+    EXPECT_TRUE(CppBigNumPro(2) < CppBigNumPro(3));
+    EXPECT_TRUE(CppBigNumPro(2) < CppBigNumPro(5));
+    EXPECT_TRUE(CppBigNumPro(-2) < CppBigNumPro(1));
+    EXPECT_TRUE(CppBigNumPro(123) < CppBigNumPro(245));
+    EXPECT_TRUE(CppBigNumPro(9) < CppBigNumPro(245));
+}
+
+TEST(CppBigNum, CppBigNumProTestOperator)
+{
+    const int32_t RANGE = 100;
+    for (int32_t i = -RANGE; i <= RANGE; ++i)
+    {
+        //printf("%d\n", i);
+        ASSERT_EQ(CppBigNumPro(i).Negative(), -i);
+        ASSERT_EQ(++CppBigNumPro(i), i + 1);
+
+        //         if (i >= 0)
+        //         {
+        //             ASSERT_EQ(CppBigNumPro(i).Sqrt(), uint32_t(sqrt(i)));
+        //         }
+
+        for (int32_t j = -RANGE; j <= RANGE; ++j)
+        {
+            //printf("%d, %d\n", i, j);
+            ASSERT_EQ(CppBigNumPro(i) - CppBigNumPro(j), i - j);
+            ASSERT_EQ(CppBigNumPro(i) + CppBigNumPro(j), i + j);
+            //             ASSERT_EQ(CppBigNumPro(i) * CppBigNumPro(j), i * j);
+            //             if (j != 0)
+            //             {
+            //                 ASSERT_EQ(CppBigNumPro(i) / CppBigNumPro(j), i / j);
+            //             }
+        }
+    }
+
+    ASSERT_EQ(CppBigNumPro("189627391243132112356412332112563341892313212136512743681123231126653419862436125131629874398124362311233211238964")
+              * CppBigNumPro("56124135641123231165243654126354113221386127489763524513223416231345657456988746451673241352323148962436"),
+              "10642673427401890287959143328411391642189930927246419475009998895455345122848209235404866983967924237303456059052419544157437954862459572950100014649960672276296454977189535827118789145330347503954873558823630655556304");
 }

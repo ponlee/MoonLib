@@ -89,6 +89,78 @@ void EnableZkLink()
     }\
     sync_lock_u.unlock()
 
+// 原始API测试
+void ZookeeperApiTestGlobalWatcher1(zhandle_t *zh, int type, int state,
+                                    const char *abs_path, void *p_zookeeper_context)
+{
+    INFOR_LOG("Watcher触发1,type[%d],path[%s],context_addr[%p].", type, abs_path, p_zookeeper_context);
+}
+
+void ZookeeperApiTestGlobalWatcher2(zhandle_t *zh, int type, int state,
+                                    const char *abs_path, void *p_zookeeper_context)
+{
+    INFOR_LOG("Watcher触发2,type[%d],path[%s],context_addr[%p].", type, abs_path, p_zookeeper_context);
+}
+
+TEST(ZooKeeper, DISABLED_ZookeeperApiTest)
+{
+    EnableZkLink();
+    zhandle_t *pZk = zookeeper_init(ZK_HOST.c_str(), &ZookeeperApiTestGlobalWatcher1, 30000, NULL, NULL, 0);
+    ASSERT_TRUE(pZk != NULL);
+
+    string TEST_NODE = "/zk_api_test";
+
+    int ret = zoo_delete(pZk, TEST_NODE.c_str(), -1);
+
+    // 目的：测试相同的context注册自定义Watcher会触发几次
+    // 结果：相同的context只触发一次，但是不同的context可以触发多次
+    //       因此C API内部是以Path-Context作为Key来管理自定义Watcher的
+    INFOR_LOG("注册Watcher");
+    ret = zoo_wexists(pZk, TEST_NODE.c_str(), &ZookeeperApiTestGlobalWatcher1, NULL, NULL); // 触发
+    EXPECT_EQ(ZNONODE, ret);
+
+    // 重复注册1
+    ret = zoo_wexists(pZk, TEST_NODE.c_str(), &ZookeeperApiTestGlobalWatcher1, NULL, NULL);     // 不触发
+    EXPECT_EQ(ZNONODE, ret);
+
+    // 不同的context
+    ret = zoo_wexists(pZk, TEST_NODE.c_str(), &ZookeeperApiTestGlobalWatcher1, &ret, NULL);     // 触发
+    EXPECT_EQ(ZNONODE, ret);
+
+    // 不同的回调函数
+    ret = zoo_wexists(pZk, TEST_NODE.c_str(), &ZookeeperApiTestGlobalWatcher2, NULL, NULL);     // 触发
+    EXPECT_EQ(ZNONODE, ret);
+
+    // 不同的回调函数+不同的参数
+    ret = zoo_wexists(pZk, TEST_NODE.c_str(), &ZookeeperApiTestGlobalWatcher2, &ret, NULL);     // 触发
+    EXPECT_EQ(ZNONODE, ret);
+
+    // 重复注册2
+    ret = zoo_wexists(pZk, TEST_NODE.c_str(), &ZookeeperApiTestGlobalWatcher2, &ret, NULL);     // 不触发
+    EXPECT_EQ(ZNONODE, ret);
+
+    INFOR_LOG("创建节点,触发Watcher.");
+    ret = zoo_create(pZk, TEST_NODE.c_str(), "", 0, &ZOO_OPEN_ACL_UNSAFE, 0, NULL, 0);
+    EXPECT_EQ(ZOK, ret);
+
+    // 测试删除节点的触发情况，使用3种方式注册Watcher，在删除节点的时候，只会触发一次
+    ret = zoo_wexists(pZk, TEST_NODE.c_str(), &ZookeeperApiTestGlobalWatcher1, NULL, NULL);               // 触发
+    EXPECT_EQ(ZOK, ret);
+
+    char data;
+    int buflen = 1;
+    ret = zoo_wget(pZk, TEST_NODE.c_str(), &ZookeeperApiTestGlobalWatcher1, NULL, &data, &buflen, NULL);  // 不触发
+    EXPECT_EQ(ZOK, ret);
+
+    ScopedStringVector children;
+    ret = zoo_wget_children(pZk, TEST_NODE.c_str(), &ZookeeperApiTestGlobalWatcher1, NULL, &children);    // 不触发
+    EXPECT_EQ(ZOK, ret);
+
+    INFOR_LOG("删除节点.");
+    ret = zoo_delete(pZk, TEST_NODE.c_str(), -1);
+    EXPECT_EQ(ZOK, ret);
+}
+
 //#if 0
 // ZookeeperManager同步API测试
 TEST(ZooKeeper, DISABLED_ZkManagerSyncTest)
@@ -684,7 +756,7 @@ TEST(ZooKeeper, DISABLED_ZkManagerSyncCustomWatcherTest)
         }
         else if (type == ZOO_DELETED_EVENT)
         {
-            // 停止Watcher
+            // 删除节点，停止Watcher
             NOTIFY_SYNC;
             return true;
         }
@@ -1125,6 +1197,143 @@ TEST(ZooKeeper, DISABLED_ZkManagerSyncGlobalWatcherTest)
     WATI_SYNC;
 }
 
+// ZookeeperManager 同步全局Watcher测试：Exists在删除节点后还会执行重注册
+TEST(ZooKeeper, DISABLED_ZkManagerSyncGlobalWatcherExistsTest)
+{
+    // 跟锁相关的变量
+    bool done = false;
+    mutex sync_lock;
+    condition_variable sync_cond;
+    unique_lock<mutex> sync_lock_u(sync_lock);
+    sync_lock_u.unlock();
+
+    ZookeeperManager zk_manager;
+    zk_manager.InitFromFile(ZK_CONFIG_FILE_PATH);
+
+    INFOR_LOG("开始连接.");
+    ASSERT_EQ(ZOK, zk_manager.Connect(make_shared<WatcherFunType>([&](ZookeeperManager &zookeeper_manager,
+                                                                      int type, int state, const char *path) -> bool
+    {
+        static_cast<void>(zookeeper_manager);
+        string type_str = GetEventTypeStr(type);
+
+        if (path != NULL)
+        {
+            DEBUG_LOG("触发%s,type[%d],type_str[%s],state[%d],path[%p][%s].",
+                      __FUNCTION__, type, type_str.c_str(), state, path, path);
+        }
+        else
+        {
+            DEBUG_LOG("触发%s,type[%d],type_str[%s],state[%d],path[%p].",
+                      __FUNCTION__, type, type_str.c_str(), state, path);
+        }
+
+        NOTIFY_SYNC;
+        return false;
+    }), 30000, 3000));
+
+    INFOR_LOG("清除数据，删除根节点.");
+    ASSERT_EQ(ZOK, zk_manager.DeletePathRecursion(TEST_ROOT_PATH));
+
+    INFOR_LOG("创建根节点.");
+    ASSERT_EQ(ZOK, zk_manager.CreatePathRecursion(TEST_ROOT_PATH));
+
+    static const string WATCHER_PATH = TEST_ROOT_PATH + "/watcher_test";
+    INFOR_LOG("Exist注册一个节点不存在的Watcher,路径[%s],在节点创建后和删除后会调用.", WATCHER_PATH.c_str());
+    ASSERT_EQ(ZNONODE, zk_manager.Exist(WATCHER_PATH, NULL, 1));
+
+    INFOR_LOG("创建节点[%s],触发Watcher.", WATCHER_PATH.c_str());
+    ASYNC_BEGIN;
+    ASSERT_EQ(ZOK, zk_manager.Create(WATCHER_PATH, ""));
+    WATI_SYNC;
+
+    INFOR_LOG("删除节点[%s],触发Watcher.", WATCHER_PATH.c_str());
+    ASYNC_BEGIN;
+    ASSERT_EQ(ZOK, zk_manager.Delete(WATCHER_PATH, -1));
+    WATI_SYNC;
+
+    INFOR_LOG("再次创建节点[%s],触发Watcher.", WATCHER_PATH.c_str());
+    ASYNC_BEGIN;
+    ASSERT_EQ(ZOK, zk_manager.Create(WATCHER_PATH, ""));
+    WATI_SYNC;
+
+    INFOR_LOG("删除节点[%s],触发Watcher.", WATCHER_PATH.c_str());
+    ASYNC_BEGIN;
+    ASSERT_EQ(ZOK, zk_manager.Delete(WATCHER_PATH, -1));
+    WATI_SYNC;
+}
+
+// 这次使用GetChildren接口进行注册，在节点删除后，不会重新注册.
+TEST(ZooKeeper, ZkManagerSyncGlobalWatcherGetChildrenTest)
+{
+    // 跟锁相关的变量
+    bool done = false;
+    mutex sync_lock;
+    condition_variable sync_cond;
+    unique_lock<mutex> sync_lock_u(sync_lock);
+    sync_lock_u.unlock();
+
+    ZookeeperManager zk_manager;
+    zk_manager.InitFromFile(ZK_CONFIG_FILE_PATH);
+    INFOR_LOG("开始连接.");
+    ASSERT_EQ(ZOK, zk_manager.Connect(make_shared<WatcherFunType>([&](ZookeeperManager &zookeeper_manager,
+                                                                      int type, int state, const char *path) -> bool
+    {
+        static_cast<void>(zookeeper_manager);
+        string type_str = GetEventTypeStr(type);
+
+        if (path != NULL)
+        {
+            DEBUG_LOG("触发%s,type[%d],type_str[%s],state[%d],path[%p][%s].",
+                      __FUNCTION__, type, type_str.c_str(), state, path, path);
+        }
+        else
+        {
+            DEBUG_LOG("触发%s,type[%d],type_str[%s],state[%d],path[%p].",
+                      __FUNCTION__, type, type_str.c_str(), state, path);
+        }
+
+        NOTIFY_SYNC;
+        return false;
+    }), 30000, 3000));
+
+    INFOR_LOG("清除数据，删除根节点.");
+    ASSERT_EQ(ZOK, zk_manager.DeletePathRecursion(TEST_ROOT_PATH));
+
+    INFOR_LOG("创建根节点.");
+    ASSERT_EQ(ZOK, zk_manager.CreatePathRecursion(TEST_ROOT_PATH));
+
+    static const string WATCHER_PATH = TEST_ROOT_PATH + "/watcher_test";
+    INFOR_LOG("创建节点[%s],触发Watcher.", WATCHER_PATH.c_str());
+    ASSERT_EQ(ZOK, zk_manager.Create(WATCHER_PATH, ""));
+
+    INFOR_LOG("关注子节点[%s].", WATCHER_PATH.c_str());
+    ScopedStringVector children;
+    ASSERT_EQ(ZOK, zk_manager.GetChildren(WATCHER_PATH, children, 1));
+
+    string child_path = WATCHER_PATH + "/children";
+    INFOR_LOG("创建子节点[%s],触发Watcher.", child_path.c_str());
+    ASYNC_BEGIN;
+    ASSERT_EQ(ZOK, zk_manager.Create(child_path, ""));
+    WATI_SYNC;
+
+    INFOR_LOG("删除子节点[%s],触发Watcher.", child_path.c_str());
+    ASYNC_BEGIN;
+    ASSERT_EQ(ZOK, zk_manager.Delete(child_path, -1));
+    WATI_SYNC;
+
+    INFOR_LOG("删除节点[%s],触发Watcher.", WATCHER_PATH.c_str());
+    ASYNC_BEGIN;
+    ASSERT_EQ(ZOK, zk_manager.Delete(WATCHER_PATH, -1));
+    WATI_SYNC;
+
+    INFOR_LOG("创建节点[%s],不触发Watcher.", WATCHER_PATH.c_str());
+    ASSERT_EQ(ZOK, zk_manager.Create(WATCHER_PATH, ""));
+
+    INFOR_LOG("删除节点[%s],不触发Watcher.", WATCHER_PATH.c_str());
+    ASSERT_EQ(ZOK, zk_manager.Delete(WATCHER_PATH, -1));
+}
+
 // ZookeeperManager 异步全局Watcher测试
 TEST(ZooKeeper, DISABLED_ZkManagerAsyncGlobalWatcherTest)
 {
@@ -1431,8 +1640,15 @@ TEST(ZooKeeper, DISABLED_ZkManagerSequenceNodeTest)
     ZookeeperManager zk_manager;
     zk_manager.InitFromFile(ZK_CONFIG_FILE_PATH);
 
+
     INFOR_LOG("开始连接.");
     ASSERT_EQ(ZOK, zk_manager.Connect(make_shared<WatcherFunType>(), 30000, 3000));
+
+    INFOR_LOG("清除数据，删除根节点.");
+    ASSERT_EQ(ZOK, zk_manager.DeletePathRecursion(TEST_ROOT_PATH));
+
+    INFOR_LOG("创建根节点.");
+    ASSERT_EQ(ZOK, zk_manager.CreatePathRecursion(TEST_ROOT_PATH));
 
     static const string SEQUENCE_PATH = TEST_ROOT_PATH + "/sequence_test";
     INFOR_LOG("创建序列节点.");
@@ -1460,6 +1676,12 @@ TEST(ZooKeeper, DISABLED_ZkManagerClientIdTest)
     INFOR_LOG("全局客户端开始连接.");
     ASSERT_EQ(ZOK, zk_manager_global.Connect(make_shared<WatcherFunType>(), expire_second * 1000, 3000));
     string old_real_path(128, '\0');
+
+    INFOR_LOG("清除数据，删除根节点.");
+    ASSERT_EQ(ZOK, zk_manager_global.DeletePathRecursion(TEST_ROOT_PATH));
+
+    INFOR_LOG("创建根节点.");
+    ASSERT_EQ(ZOK, zk_manager_global.CreatePathRecursion(TEST_ROOT_PATH));
 
     {
         ZookeeperManager zk_manager;

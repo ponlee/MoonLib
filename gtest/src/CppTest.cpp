@@ -3,7 +3,31 @@
 
 #include "gtest/gtest.h"
 
+#include <CppCurl.h>
+#include <CppRegex.h>
+
 using namespace std;
+
+TEST(CppTest, DISABLED_DTSMusic)
+{
+    // 列表地址：http://blog.sina.com.cn/s/articlelist_1197845451_8_1.html
+
+    CppRegex titleReg("<title>.*?</title>");
+    CppRegex listReg("http://blog.sina.com.cn/s/blog_.*?html");
+    for (uint32_t page = 1; page <= 20; ++page)
+    {
+        string html = CppCurl::Get(CppString::GetArgs("http://blog.sina.com.cn/s/articlelist_1197845451_8_%d.html", page));
+        vector<string> result;
+        listReg.Matches(html, result);
+        for (auto result_it = result.begin(); result_it != result.end(); ++result_it)
+        {
+            html = CppCurl::Get(*result_it);
+            string title = CppString::ReplaceStr(CppString::ReplaceStr(titleReg.Match(html), "_jiangkuaihe_新浪博客</title>"), "<title>");
+            title = CppString::ReplaceStr(title, "&nbsp;", " ");
+            cout << title << endl << *result_it << endl << endl;
+        }
+    }
+}
 
 TEST(CppTest, VTable)
 {
