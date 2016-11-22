@@ -1085,6 +1085,7 @@ TEST(ZooKeeper, DISABLED_ZkManagerExceptionTest)
 
     INFOR_LOG("删除节点.");
     ASSERT_EQ(ZOK, zk_manager.Delete(EXCEPTION_PATH, -1));
+
 }
 
 // ZookeeperManager 同步全局Watcher测试
@@ -1543,6 +1544,8 @@ TEST(ZooKeeper, DISABLED_ZkManagerExtraInterfaceTest)
 // ZookeeperManager 临时节点测试
 TEST(ZooKeeper, DISABLED_ZkManagerEphemeralNodeTest)
 {
+    EnableZkLink();
+
     // 跟锁相关的变量
     bool done = false;
     mutex sync_lock;
@@ -1632,6 +1635,109 @@ TEST(ZooKeeper, DISABLED_ZkManagerEphemeralNodeTest)
         string path = EPHEMERAL_PATH + CppString::ToString(i);
         ASSERT_EQ(ZOK, zk_manager.Delete(path, -1));
     }
+
+    // 下一个测试
+    INFOR_LOG("超时后，临时节点的父节点也被删除，需要递归创建父节点，然后创建临时节点.");
+    INFOR_LOG("创建临时节点.");
+    ASSERT_EQ(ZOK, zk_manager.Create(EPHEMERAL_PATH, "", NULL, &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL));
+
+    INFOR_LOG("使用iptables断开连接.");
+    DisableZkLink();
+    for (int32_t remain_second = expire_second + 5; remain_second > 0; --remain_second)
+    {
+        INFOR_LOG("等待%d秒.", remain_second);
+        sleep(1);
+    }
+
+    INFOR_LOG("使用iptables重新连接.");
+    ASYNC_BEGIN;
+    EnableZkLink();
+
+    INFOR_LOG("使用另一个连接删除临时节点的父节点,等待第一个连接恢复.");
+    string data;
+    Stat stat;
+    {
+        ZookeeperManager zk_manager2;
+        zk_manager2.InitFromFile(ZK_CONFIG_FILE_PATH);
+        zk_manager2.Connect(shared_ptr<WatcherFunType>(), expire_second * 1000, 3000);
+        ASSERT_EQ(ZOK, zk_manager2.DeletePathRecursion(TEST_ROOT_PATH));
+        WATI_SYNC;
+
+        INFOR_LOG("原始连接恢复，临时节点已经重新创建了,版本号为1.");
+        ASSERT_EQ(ZOK, zk_manager.GetCString(EPHEMERAL_PATH, data, &stat));
+        ASSERT_EQ(0, stat.version);
+
+        /* 下一个测试 */
+        INFOR_LOG("注册临时节点后，别的连接删除了临时节点，原始连接将父目录递归删除，重连之后，不能再注册临时节点.");
+        INFOR_LOG("另一个连接删除节点.");
+        ASSERT_EQ(ZOK, zk_manager2.DeletePathRecursion(EPHEMERAL_PATH));
+    }
+
+    INFOR_LOG("原始连接将父目录递归删除.");
+    ASSERT_EQ(ZOK, zk_manager.DeletePathRecursion(TEST_ROOT_PATH));
+
+    INFOR_LOG("使用iptables断开连接.");
+    DisableZkLink();
+    for (int32_t remain_second = expire_second + 5; remain_second > 0; --remain_second)
+    {
+        INFOR_LOG("等待%d秒.", remain_second);
+        sleep(1);
+    }
+
+    INFOR_LOG("使用iptables重新连接.");
+    ASYNC_BEGIN;
+    EnableZkLink();
+    WATI_SYNC;
+
+    INFOR_LOG("原始连接恢复，临时节点不存在.");
+    ASSERT_EQ(ZNONODE, zk_manager.GetCString(EPHEMERAL_PATH, data, &stat));
+
+    /* 下一个测试 */
+    INFOR_LOG("超时后，临时节点重注册失败的情况，反复尝试，直到成功.");
+    INFOR_LOG("创建根节点.");
+    ASSERT_EQ(ZOK, zk_manager.CreatePathRecursion(TEST_ROOT_PATH));
+
+    INFOR_LOG("创建临时节点.");
+    ASSERT_EQ(ZOK, zk_manager.Create(EPHEMERAL_PATH, "", NULL, &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL));
+
+    INFOR_LOG("使用iptables断开连接.");
+    DisableZkLink();
+    for (int32_t remain_second = expire_second + 5; remain_second > 0; --remain_second)
+    {
+        INFOR_LOG("等待%d秒.", remain_second);
+        sleep(1);
+    }
+
+    INFOR_LOG("使用iptables重新连接.");
+    ASYNC_BEGIN;
+    EnableZkLink();
+
+    INFOR_LOG("使用另一个连接删除临时节点的父节点,并且将他的父节点改成临时节点,于是第一个节点的临时节点就无法创建,等待第一个连接恢复.");
+    {
+        ZookeeperManager zk_manager2;
+        zk_manager2.InitFromFile(ZK_CONFIG_FILE_PATH);
+        zk_manager2.Connect(shared_ptr<WatcherFunType>(), expire_second * 1000, 3000);
+        ASSERT_EQ(ZOK, zk_manager2.DeletePathRecursion(TEST_ROOT_PATH));
+        ASSERT_EQ(ZOK, zk_manager2.Create(TEST_ROOT_PATH, "", NULL, &ZOO_OPEN_ACL_UNSAFE, ZOO_EPHEMERAL));
+        WATI_SYNC;
+
+        for (int32_t remain_second = expire_second + 5; remain_second > 0; --remain_second)
+        {
+            INFOR_LOG("等待%d秒.", remain_second);
+            sleep(1);
+        }
+    }
+
+    INFOR_LOG("第二个连接释放，删除临时根节点，第一个连接恢复临时节点的创建.");
+    for (int32_t remain_second = 15; remain_second > 0; --remain_second)
+    {
+        INFOR_LOG("等待%d秒.", remain_second);
+        sleep(1);
+    }
+
+    INFOR_LOG("原始连接恢复，临时节点已经重新创建了,版本号为1.");
+    ASSERT_EQ(ZOK, zk_manager.GetCString(EPHEMERAL_PATH, data, &stat));
+    ASSERT_EQ(0, stat.version);
 }
 
 // ZookeeperManager 序列节点测试

@@ -31,6 +31,7 @@ Zookeeper封装API实现功能：
         支持相对路径（内部实现全部使用绝对路径，不使用ZooKeeper C api的相对路径功能）
         支持一些额外功能函数，如递归创建节点，获得所有子节点的节点名称和路径等
         支持Session超时自动，重连时自动注册Watcher，创建临时节点
+        支持使用Client ID重连在Session没超时时重连
     
 未实现的非功能可以通过GetHandler()获得原始API句柄调用
 
@@ -274,7 +275,6 @@ public:
     int32_t Get(const std::string &path, char *buffer, int* buflen, Stat *stat = NULL, int watch = 0);
     int32_t Get(const std::string &path, char *buffer, int* buflen, Stat *stat, std::shared_ptr<WatcherFunType> watcher_fun);
 
-    // TODO(moontan)：给个返回vector<std::string>的接口
     // GetChildren函数实际上是使用StringsCompletionFunType的，但是只有它用，就使用StringsStatCompletionFunType了，如果不需要stat的话，传入的stat为NULL，去掉StringsCompletionFunType
     // AGetChildren回调函数中返回的String_vector不需要用户释放，zookeeper的API会自动释放内存
     // GetChildren中使用ScopedStringVector作为数据传出结构，包含自动释放内存
@@ -326,7 +326,7 @@ public:
 
     /* 额外接口 */
 
-    /** 递归创建路径，内容为空
+    /** 递归创建路径，内容为空，仅支持创建普通节点，因为增加其他的操作会增加不少复杂度
      *
      * @param   const std::string & path
      * @retval  int32_t
@@ -342,7 +342,15 @@ public:
      */
     int32_t DeletePathRecursion(const std::string &path);
 
-    // TODO(moontan)：增加一个GetChildrenValue接口，将节点的子节点的Key和Value都拿出来
+    /** 将节点的子节点的Key和Value都拿出来
+     *
+     * @param 	const std::string & path
+     * @param 	std::map<std::string
+     * @param 	ValueStat> & children_value
+     * @param 	uint32_t max_value_size         由于获得节点内容需要预先分配内存，这个值表示每个Value预先分配内存的大小
+     * @retval 	int32_t
+     * @author 	moontan
+     */
     int32_t GetChildrenValue(const std::string &path, std::map<std::string, ValueStat> &children_value,
                              uint32_t max_value_size = 2048);
 
@@ -373,11 +381,12 @@ protected:
 
     /** 处理批量操作过程中对临时节点列表的操作
      *
-     * @param   const std::vector<zoo_op> & multi_ops
-     * @retval  void
-     * @author  moontan
+     * @param 	const std::vector<zoo_op> & multi_ops
+     * @param 	const std::vector<zoo_op_result_t> & multi_result
+     * @retval 	void
+     * @author 	moontan
      */
-    void ProcMultiEphemeralNode(const std::vector<zoo_op> &multi_ops);
+    void ProcMultiEphemeralNode(const std::vector<zoo_op> &multi_ops, const std::vector<zoo_op_result_t> &multi_result);
 
     std::mutex m_connect_lock;
     std::condition_variable m_connect_cond;
