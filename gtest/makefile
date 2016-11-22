@@ -86,6 +86,7 @@ LDFLAGS += -lpthread
 LDFLAGS += -lcurl
 LDFLAGS += -lssl
 LDFLAGS += -lcrypto
+#LDFLAGS += -fprofile-arcs -ftest-coverage
 
 #编译选项
 CXXFLAGS += -g
@@ -99,6 +100,7 @@ CXXFLAGS += -std=gnu++11
 CXXFLAGS += -Wno-deprecated
 CXXFLAGS += $(INC_DIR)
 CXXFLAGS += -DUSE_CPP_LOG_MACRO
+#CXXFLAGS += -fprofile-arcs -ftest-coverage
 
 #自动搜寻，当前项目的目标文件
 #SUBDIR可以指定多个目录，指定的目录下的所有cpp文件会加入编译，比如 SUBDIR = . src

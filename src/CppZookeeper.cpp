@@ -2003,7 +2003,7 @@ void ZookeeperManager::ProcMultiEphemeralNode(const vector<zoo_op> &multi_ops,
     unique_lock<recursive_mutex> phemeral_node_info_lock(m_ephemeral_node_info_lock);
     auto result_it = multi_result.begin();
     for (auto zoo_op_it = multi_ops.begin(); zoo_op_it != multi_ops.end() && result_it != multi_result.end();
-         ++zoo_op_it, ++zoo_op_it)
+         ++zoo_op_it, ++result_it)
     {
         if (result_it->err != ZOK)
         {

@@ -159,6 +159,9 @@ TEST(ZooKeeper, DISABLED_ZookeeperApiTest)
     INFOR_LOG("删除节点.");
     ret = zoo_delete(pZk, TEST_NODE.c_str(), -1);
     EXPECT_EQ(ZOK, ret);
+
+    // 关闭连接
+    zookeeper_close(pZk);
 }
 
 //#if 0

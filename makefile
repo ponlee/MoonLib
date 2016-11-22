@@ -42,6 +42,7 @@ LDFLAGS += -ldl
 LDFLAGS += -fPIC
 #LDFLAGS += -lrtmp
 LDFLAGS += -rdynamic
+#LDFLAGS += -fprofile-arcs -ftest-coverage
 #LDFLAGS += -L/usr/lib/mysql/ -L/usr/lib64/mysql/ -lmysqlclient 
 LDFLAGS += ${STATIC_LIBS}
 #LDFLAGS += -pg
@@ -52,6 +53,7 @@ CFLAGS += -std=gnu++11
 CFLAGS += -D__CPP_UTIL_LIB__
 #CFLAGS += -std=c++11
 #CFLAGS += -pg
+#CFLAGS += -fprofile-arcs -ftest-coverage
 CFLAGS += $(INC_DIR)
 
 #自动搜寻，当前项目的目标文件
