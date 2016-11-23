@@ -84,7 +84,8 @@ public:
     ZookeeperCtx(ZookeeperManager &zookeeper_manager, WatcherType watcher_type = NOT_WATCHER,
                  bool need_reg_watcher = true)
         :m_zookeeper_manager(zookeeper_manager), m_is_stop(false),
-        m_auto_reg_watcher(need_reg_watcher), m_watcher_type(watcher_type)
+        m_auto_reg_watcher(need_reg_watcher), m_watcher_type(watcher_type),
+        m_global_watcher_add_type(0)
     {
     }
 
@@ -114,6 +115,10 @@ public:
 
     string m_ephemeral_path;                                // 临时节点信息，不为空时用于异步操作成功后写入临时节点信息，如果m_ephemeral_path不为空，m_ephemeral_info为NULL，表示临时节点信息被删除，在VoidCompletionFunType中需要处理
     shared_ptr<EphemeralNodeInfo> m_ephemeral_info;         // 临时节点信息，不为NULL时用于异步操作成功后写入临时节点信息
+
+    string m_watch_path;                                    // Watch的Path，用于异步操作成功后添加Watcher信息
+    shared_ptr<ZookeeperCtx> m_custom_watcher_context;      // 自定义Watcher的Context，用于异步操作成功后添加Watcher信息
+    uint8_t m_global_watcher_add_type;                      // 全局Watcher要添加的类型，用于异步操作成功后添加全局Watcher信息
 
     // 批量操作相关数据
     shared_ptr<MultiOps> m_multi_ops;                       // 批量操作请求
@@ -267,35 +272,33 @@ ZookeeperManager::~ZookeeperManager()
     }
 }
 
-int32_t ZookeeperManager::AExist(const string &path, shared_ptr<StatCompletionFunType> stat_completion_fun,
-                                 int watch /*= 0*/)
+int32_t ZookeeperManager::AExists(const string &path, shared_ptr<StatCompletionFunType> stat_completion_fun,
+                                  int watch /*= 0*/)
 {
     int32_t ret = ZOK;
     ZookeeperCtx *p_zookeeper_context = new ZookeeperCtx(*this);
     p_zookeeper_context->m_stat_completion_fun = stat_completion_fun;
 
     string abs_path = move(ChangeToAbsPath(path));
-    ret = zoo_aexists(m_zhandle, abs_path.c_str(), watch, &ZookeeperManager::InnerStatCompletion, p_zookeeper_context);
+    if (watch != 0)
+    {
+        p_zookeeper_context->m_watch_path = abs_path;
+        p_zookeeper_context->m_global_watcher_add_type = WATCHER_EXIST;
+    }
+
+    ret = zoo_aexists(m_zhandle, abs_path.c_str(), watch, &ZookeeperManager::InnerStatCompletion,
+                      p_zookeeper_context);
     if (ret != ZOK)
     {
         ERR_LOG(0, 0, "Zookeeper:发生错误:abs_path[%s],ret[%d],zerror[%s].", abs_path.c_str(), ret, zerror(ret));
         delete p_zookeeper_context;
     }
-    else if (watch != 0)
-    {
-        unique_lock<recursive_mutex> lock(m_global_watcher_path_type_lock);
-        m_global_watcher_path_type[abs_path] |= WATCHER_EXIST;
-    }
-    else
-    {
-        // Nothing
-    }
 
     return ret;
 }
 
-int32_t ZookeeperManager::AExist(const string &path, shared_ptr<StatCompletionFunType> stat_completion_fun,
-                                 shared_ptr<WatcherFunType> watcher_fun)
+int32_t ZookeeperManager::AExists(const string &path, shared_ptr<StatCompletionFunType> stat_completion_fun,
+                                  shared_ptr<WatcherFunType> watcher_fun)
 {
     int32_t ret = ZOK;
     ZookeeperCtx *p_zookeeper_context = new ZookeeperCtx(*this);
@@ -305,16 +308,15 @@ int32_t ZookeeperManager::AExist(const string &path, shared_ptr<StatCompletionFu
     p_zookeeper_watcher_context->m_watcher_fun = watcher_fun;
 
     string abs_path = move(ChangeToAbsPath(path));
+    p_zookeeper_context->m_watch_path = abs_path;
+    p_zookeeper_context->m_custom_watcher_context = p_zookeeper_watcher_context;
+
     ret = zoo_awexists(m_zhandle, abs_path.c_str(), &ZookeeperManager::InnerWatcher, p_zookeeper_watcher_context.get(),
                        &ZookeeperManager::InnerStatCompletion, p_zookeeper_context);
     if (ret != ZOK)
     {
         ERR_LOG(0, 0, "Zookeeper:发生错误:abs_path[%s],ret[%d],zerror[%s].", abs_path.c_str(), ret, zerror(ret));
         delete p_zookeeper_context;
-    }
-    else
-    {
-        AddCustomWatcher(abs_path, p_zookeeper_watcher_context);
     }
 
     return ret;
@@ -368,20 +370,17 @@ int32_t ZookeeperManager::AGet(const string &path,
     p_zookeeper_context->m_data_completion_fun = data_completion_fun;
 
     string abs_path = move(ChangeToAbsPath(path));
+    if (watch != 0)
+    {
+        p_zookeeper_context->m_watch_path = abs_path;
+        p_zookeeper_context->m_global_watcher_add_type = WATCHER_GET;
+    }
+
     ret = zoo_aget(m_zhandle, abs_path.c_str(), watch, &ZookeeperManager::InnerDataCompletion, p_zookeeper_context);
     if (ret != ZOK)
     {
         ERR_LOG(0, 0, "Zookeeper:发生错误:abs_path[%s],ret[%d],zerror[%s].", abs_path.c_str(), ret, zerror(ret));
         delete p_zookeeper_context;
-    }
-    else if (watch != 0)
-    {
-        unique_lock<recursive_mutex> lock(m_global_watcher_path_type_lock);
-        m_global_watcher_path_type[abs_path] |= WATCHER_GET;
-    }
-    else
-    {
-        // Nothing
     }
 
     return ret;
@@ -398,16 +397,15 @@ int32_t ZookeeperManager::AGet(const string &path, shared_ptr<DataCompletionFunT
     p_zookeeper_watcher_context->m_watcher_fun = watcher_fun;
 
     string abs_path = move(ChangeToAbsPath(path));
+    p_zookeeper_context->m_watch_path = abs_path;
+    p_zookeeper_context->m_custom_watcher_context = p_zookeeper_watcher_context;
+
     ret = zoo_awget(m_zhandle, abs_path.c_str(), &ZookeeperManager::InnerWatcher, p_zookeeper_watcher_context.get(),
                     &ZookeeperManager::InnerDataCompletion, p_zookeeper_context);
     if (ret != ZOK)
     {
         ERR_LOG(0, 0, "Zookeeper:发生错误:abs_path[%s],ret[%d],zerror[%s].", abs_path.c_str(), ret, zerror(ret));
         delete p_zookeeper_context;
-    }
-    else
-    {
-        AddCustomWatcher(abs_path, p_zookeeper_watcher_context);
     }
 
     return ret;
@@ -464,6 +462,12 @@ int32_t ZookeeperManager::AGetChildren(const string &path,
     ZookeeperCtx *p_zookeeper_context = new ZookeeperCtx(*this);
     p_zookeeper_context->m_strings_stat_completion_fun = strings_stat_completion_fun;
     string abs_path = move(ChangeToAbsPath(path));
+    if (watch != 0)
+    {
+        p_zookeeper_context->m_watch_path = abs_path;
+        p_zookeeper_context->m_global_watcher_add_type = WATCHER_GET_CHILDREN;
+    }
+
     if (need_stat)
     {
         ret = zoo_aget_children2(m_zhandle, abs_path.c_str(), watch,
@@ -481,15 +485,6 @@ int32_t ZookeeperManager::AGetChildren(const string &path,
         ERR_LOG(0, 0, "Zookeeper:发生错误:abs_path[%s],ret[%d],zerror[%s].", abs_path.c_str(), ret, zerror(ret));
         delete p_zookeeper_context;
     }
-    else if (watch != 0)
-    {
-        unique_lock<recursive_mutex> lock(m_global_watcher_path_type_lock);
-        m_global_watcher_path_type[abs_path] |= WATCHER_GET_CHILDREN;
-    }
-    else
-    {
-        // Nothing
-    }
 
     return ret;
 }
@@ -506,7 +501,11 @@ int32_t ZookeeperManager::AGetChildren(const string &path,
 
     shared_ptr<ZookeeperCtx> p_zookeeper_watcher_context = make_shared<ZookeeperCtx>(*this, ZookeeperCtx::GET_CHILDREN);
     p_zookeeper_watcher_context->m_watcher_fun = watcher_fun;
+
     string abs_path = move(ChangeToAbsPath(path));
+    p_zookeeper_context->m_watch_path = abs_path;
+    p_zookeeper_context->m_custom_watcher_context = p_zookeeper_watcher_context;
+
     if (need_stat)
     {
         ret = zoo_awget_children2(m_zhandle, abs_path.c_str(), &ZookeeperManager::InnerWatcher,
@@ -524,10 +523,6 @@ int32_t ZookeeperManager::AGetChildren(const string &path,
     {
         ERR_LOG(0, 0, "Zookeeper:发生错误:abs_path[%s],ret[%d],zerror[%s].", abs_path.c_str(), ret, zerror(ret));
         delete p_zookeeper_context;
-    }
-    else
-    {
-        AddCustomWatcher(abs_path, p_zookeeper_watcher_context);
     }
 
     return ret;
@@ -1217,7 +1212,7 @@ int32_t ZookeeperManager::DeletePathRecursion(const string &path)
     {
         if (node_it->first.find(pre_path) == 0)
         {
-            node_it = m_ephemeral_node_info.erase(node_it);
+            m_ephemeral_node_info.erase(node_it++);
         }
         else
         {
@@ -1665,10 +1660,24 @@ void ZookeeperManager::InnerStatCompletion(int rc, const Stat *stat, const void 
 
     ZookeeperManager &manager = up_context->m_zookeeper_manager;
 
-    if (rc == ZOK && up_context->m_ephemeral_info != NULL && !up_context->m_ephemeral_path.empty())
+    if (rc == ZOK)
     {
-        unique_lock<recursive_mutex> phemeral_node_info_lock(manager.m_ephemeral_node_info_lock);
-        manager.m_ephemeral_node_info[up_context->m_ephemeral_path] = *up_context->m_ephemeral_info;
+        // 处理临时节点
+        if (up_context->m_ephemeral_info != NULL && !up_context->m_ephemeral_path.empty())
+        {
+            unique_lock<recursive_mutex> phemeral_node_info_lock(manager.m_ephemeral_node_info_lock);
+            manager.m_ephemeral_node_info[up_context->m_ephemeral_path] = *up_context->m_ephemeral_info;
+        }
+    }
+
+    // Exist还要额外考虑ZNONODE返回值
+    if (rc == ZOK || (rc == ZNONODE
+                      && (up_context->m_global_watcher_add_type == WATCHER_EXIST
+                          || (up_context->m_custom_watcher_context != NULL
+                              && up_context->m_custom_watcher_context->m_watcher_type == ZookeeperCtx::EXIST))))
+    {
+        // 处理Watcher
+        manager.ProcAsyncWatcher(*up_context);
     }
 
     if (up_context->m_stat_completion_fun != NULL && *up_context->m_stat_completion_fun != NULL)
@@ -1691,6 +1700,12 @@ void ZookeeperManager::InnerDataCompletion(int rc, const char *value, int value_
 
     ZookeeperManager &manager = up_context->m_zookeeper_manager;
 
+    if (rc == ZOK)
+    {
+        // 处理Watcher
+        manager.ProcAsyncWatcher(*up_context);
+    }
+
     if (up_context->m_data_completion_fun != NULL && *up_context->m_data_completion_fun != NULL)
     {
         (*up_context->m_data_completion_fun)(manager, rc, value, value_len, stat);
@@ -1711,6 +1726,12 @@ void ZookeeperManager::InnerStringsCompletion(int rc, const String_vector * stri
 
     ZookeeperManager &manager = up_context->m_zookeeper_manager;
 
+    if (rc == ZOK)
+    {
+        // 处理Watcher
+        manager.ProcAsyncWatcher(*up_context);
+    }
+
     if (up_context->m_strings_stat_completion_fun != NULL && *up_context->m_strings_stat_completion_fun != NULL)
     {
         (*up_context->m_strings_stat_completion_fun)(manager, rc, strings, NULL);
@@ -1730,6 +1751,12 @@ void ZookeeperManager::InnerStringsStatCompletion(int rc, const String_vector *s
     unique_ptr<ZookeeperCtx> up_context(p_context);
 
     ZookeeperManager &manager = up_context->m_zookeeper_manager;
+
+    if (rc == ZOK)
+    {
+        // 处理Watcher
+        manager.ProcAsyncWatcher(*up_context);
+    }
 
     if (up_context->m_strings_stat_completion_fun != NULL && *up_context->m_strings_stat_completion_fun != NULL)
     {
@@ -2034,6 +2061,29 @@ void ZookeeperManager::ProcMultiEphemeralNode(const vector<zoo_op> &multi_ops,
         else
         {
             // Nothing
+        }
+    }
+}
+
+void ZookeeperManager::ProcAsyncWatcher(ZookeeperCtx &context)
+{
+    if (!context.m_watch_path.empty())
+    {
+        if (context.m_global_watcher_add_type != 0)
+        {
+            // 全局Watcher
+            unique_lock<recursive_mutex> global_watcher_path_type_lock(m_global_watcher_path_type_lock);
+            m_global_watcher_path_type[context.m_watch_path] |= context.m_global_watcher_add_type;
+        }
+        else if (context.m_custom_watcher_context != NULL)
+        {
+            // 自定义Watcher
+            AddCustomWatcher(context.m_watch_path, context.m_custom_watcher_context);
+        }
+        else
+        {
+            ERR_LOG(0, 0, "没有自定义Watcher也不是全局Watcher，这里一定是有问题了,path[%s].",
+                    context.m_watch_path.c_str());
         }
     }
 }

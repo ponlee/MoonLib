@@ -262,8 +262,8 @@ public:
     }
 
     // AExist接口如果调用成功，节点存在，一定包含Stat数据
-    int32_t AExist(const std::string &path, std::shared_ptr<StatCompletionFunType> stat_completion_fun, int watch = 0);
-    int32_t AExist(const std::string &path, std::shared_ptr<StatCompletionFunType> stat_completion_fun, std::shared_ptr<WatcherFunType> watcher_fun);
+    int32_t AExists(const std::string &path, std::shared_ptr<StatCompletionFunType> stat_completion_fun, int watch = 0);
+    int32_t AExists(const std::string &path, std::shared_ptr<StatCompletionFunType> stat_completion_fun, std::shared_ptr<WatcherFunType> watcher_fun);
     int32_t Exist(const std::string &path, Stat *stat = NULL, int watch = 0);
     int32_t Exist(const std::string &path, Stat *stat, std::shared_ptr<WatcherFunType> watcher_fun);
 
@@ -387,6 +387,14 @@ protected:
      * @author 	moontan
      */
     void ProcMultiEphemeralNode(const std::vector<zoo_op> &multi_ops, const std::vector<zoo_op_result_t> &multi_result);
+
+    /** 处理异步操作成功后，对于Watcher的处理
+     *
+     * @param 	ZookeeperCtx & context
+     * @retval 	void 
+     * @author 	moontan
+     */
+    void ProcAsyncWatcher(ZookeeperCtx &context);
 
     std::mutex m_connect_lock;
     std::condition_variable m_connect_cond;

@@ -4,22 +4,28 @@
 #include <stdint.h>
 #include <string>
 #include <ostream>
-#include <vector>
+#include <deque>
 
 using std::string;
 using std::ostream;
 
 // 后面考虑整合共同的函数
+// 使用flag表示符号，为true表示负数
 class CppBigNumBase
 {
-    
+public:
+    CppBigNumBase() :flag(true) 
+    {
+
+    }
+
+    bool flag;      // 符号位，true表示>=0，false表示小于0
 };
 
 // 正整数大数运算
 // 使用字符串numStr表示数字
-// 使用flag表示符号，为true表示负数
 // 效率比较低，写来实际上是用来练手的
-class CppBigNum
+class CppBigNum :public CppBigNumBase
 {
 public:
     CppBigNum();
@@ -249,7 +255,6 @@ public:
 
 protected:
     string numStr;
-    bool flag;      // 符号位，true表示>=0，false表示小于0
 
     /** 字符串表示的数字相比较，需要保证输入是规范的非负值数字，不包含以0或者符号开头的特殊数字
      *
@@ -262,7 +267,7 @@ protected:
 };
 
 // 使用uint32_t存储数据，相当于用N个2^32进制的数来存储数据，计算效率会高很多
-class CppBigNumPro
+class CppBigNumPro : public CppBigNumBase
 {
 public:
     CppBigNumPro();
@@ -482,12 +487,11 @@ public:
     */
     CppBigNumPro Abs() const;
 
+    std::deque<uint32_t> numVec;        // 用于存储数字，低索引表示低位，最高位不能为0
 protected:
-    std::vector<uint32_t> numVec;        // 用于存储数字，低索引表示低位，最高位不能为0
-    bool flag;                      // 符号位，true表示>=0，false表示小于0
 
-    CppBigNumPro(bool inFlag, std::vector<uint32_t> &&inNumVec);
-    CppBigNumPro(bool inFlag, const std::vector<uint32_t> &inNumVec);
+    CppBigNumPro(bool inFlag, std::deque<uint32_t> &&inNumVec);
+    CppBigNumPro(bool inFlag, const std::deque<uint32_t> &inNumVec);
 
     /** 数组表示的数字相比较，需要保证输入是规范的非负值数字，不包含以0或者符号开头的特殊数字
     *
@@ -496,7 +500,7 @@ protected:
     * @retval 	bool
     * @author 	moontan
     */
-    static bool numVecLess(const std::vector<uint32_t> &numVec1, const std::vector<uint32_t> &numVec2);
+    static bool numVecLess(const std::deque<uint32_t> &numVec1, const std::deque<uint32_t> &numVec2);
 };
 
 #endif

@@ -91,7 +91,7 @@ LDFLAGS += -lcrypto
 #编译选项
 CXXFLAGS += -g
 CXXFLAGS += -MMD
-CXXFLAGS += -O2
+CXXFLAGS += -O0
 CXXFLAGS += -Wall
 CXXFLAGS += -Wextra
 CXXFLAGS += -fPIC

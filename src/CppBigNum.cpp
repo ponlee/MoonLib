@@ -3,38 +3,39 @@
 #include "CppString.h"
 #include "CppArray.h"
 
-CppBigNum::CppBigNum() :numStr("0"), flag(true)
+CppBigNum::CppBigNum() :numStr("0")
 {
+    flag = true;
 }
 
-CppBigNum::CppBigNum(const string &num) : flag(true)
+CppBigNum::CppBigNum(const string &num)
 {
     GetNumFromStr(num);
 }
 
-CppBigNum::CppBigNum(const char *num) : flag(true)
+CppBigNum::CppBigNum(const char *num)
 {
     GetNumFromStr(num);
 }
 
-CppBigNum::CppBigNum(uint64_t num) : numStr(CppString::ToString(num)), flag(true)
+CppBigNum::CppBigNum(uint64_t num) : numStr(CppString::ToString(num))
 {
-
+    flag = true;
 }
 
-CppBigNum::CppBigNum(int64_t num) : numStr(CppString::ToString(abs(num))), flag(num >= 0)
+CppBigNum::CppBigNum(int64_t num) : numStr(CppString::ToString(abs(num)))
 {
-
+    flag = (num >= 0);
 }
 
-CppBigNum::CppBigNum(int32_t num) : numStr(CppString::ToString(abs(num))), flag(num >= 0)
+CppBigNum::CppBigNum(int32_t num) : numStr(CppString::ToString(abs(num)))
 {
-
+    flag = (num >= 0);
 }
 
-CppBigNum::CppBigNum(uint32_t num) : numStr(CppString::ToString(num)), flag(true)
+CppBigNum::CppBigNum(uint32_t num) : numStr(CppString::ToString(num))
 {
-
+    flag = true;
 }
 
 CppBigNum::~CppBigNum()
@@ -106,7 +107,7 @@ CppBigNum CppBigNum::Sqrt() const
     }
 
     // 给出前面几个小值的解法
-    static uint32_t SMALL_RESULT[] = {0, 1, 1, 1, 2};
+    static uint32_t SMALL_RESULT[] = { 0, 1, 1, 1, 2 };
 
     if (*this < ARRAY_SIZE(SMALL_RESULT))
     {
@@ -338,7 +339,7 @@ bool CppBigNum::operator<(const CppBigNum &right) const
         }
     }
 
-    // 负号不同，左侧为正数，则左侧大，否则右侧大
+    // 符号不同，左侧为正数，则左侧大，否则右侧大
     return !flag;
 }
 
@@ -424,7 +425,7 @@ const CppBigNum CppBigNum::operator*(const CppBigNum &right) const
         uint64_t it2DigitNum;               // 第2个数每一位的数值
         string currValueMul;                // 进位后的0
 
-                                            // 把2个数逆序，然后逐位相乘，保留进位
+        // 把2个数逆序，然后逐位相乘，保留进位
         for (string::const_reverse_iterator it2 = right.numStr.rbegin();
              it2 != right.numStr.rend(); ++it2)
         {
@@ -468,7 +469,7 @@ const CppBigNum CppBigNum::operator*(const CppBigNum &right) const
 
     bigNumResult.flag = !(flag^right.flag);
 
-    if (bigNumResult == "0")
+    if (bigNumResult.numStr == "0")
     {
         bigNumResult.flag = true;
     }
@@ -489,8 +490,8 @@ const CppBigNum CppBigNum::operator/(const CppBigNum &right) const
         return 0;
     }
 
-    CppBigNum currNum;          // 当前被除数用于计算的部分
-    CppBigNum result;           // 结果
+    CppBigNum currNum;              // 当前被除数用于计算的部分
+    CppBigNum bigNumResult;         // 结果
     CppBigNum rightNoFlag(right);   // 除数的正数形式
     rightNoFlag.flag = true;
 
@@ -520,12 +521,18 @@ const CppBigNum CppBigNum::operator/(const CppBigNum &right) const
             }
         }
 
-        result *= 10;
-        result += currValue;
+        bigNumResult *= 10;
+        bigNumResult += currValue;
     }
 
-    result.flag = !(flag^right.flag);
-    return result;
+    bigNumResult.flag = !(flag^right.flag);
+
+    if (bigNumResult.numStr == "0")
+    {
+        bigNumResult.flag = true;
+    }
+
+    return bigNumResult;
 }
 
 CppBigNum & CppBigNum::operator=(const CppBigNum &right)
@@ -535,24 +542,24 @@ CppBigNum & CppBigNum::operator=(const CppBigNum &right)
     return *this;
 }
 
-CppBigNumPro::CppBigNumPro() :flag(true)
+CppBigNumPro::CppBigNumPro()
 {
-
+    flag = true;
 }
 
-CppBigNumPro::CppBigNumPro(const string &num) : flag(true)
+CppBigNumPro::CppBigNumPro(const string &num)
 {
-    // TODO
-
+    GetNumFromStr(num);
 }
 
-CppBigNumPro::CppBigNumPro(const char *num) :flag(true)
+CppBigNumPro::CppBigNumPro(const char *num)
 {
-    // TODO
+    GetNumFromStr(num);
 }
 
-CppBigNumPro::CppBigNumPro(uint64_t num) : flag(true)
+CppBigNumPro::CppBigNumPro(uint64_t num)
 {
+    flag = true;
     if (num == 0)
     {
         return;
@@ -566,8 +573,10 @@ CppBigNumPro::CppBigNumPro(uint64_t num) : flag(true)
     }
 }
 
-CppBigNumPro::CppBigNumPro(int64_t num) :flag(num >= 0)
+CppBigNumPro::CppBigNumPro(int64_t num)
 {
+    flag = (num >= 0);
+
     if (num == 0)
     {
         return;
@@ -587,8 +596,9 @@ CppBigNumPro::CppBigNumPro(int64_t num) :flag(num >= 0)
     }
 }
 
-CppBigNumPro::CppBigNumPro(int32_t num) :flag(num >= 0)
+CppBigNumPro::CppBigNumPro(int32_t num)
 {
+    flag = (num >= 0);
     if (num == 0)
     {
         return;
@@ -603,19 +613,35 @@ CppBigNumPro::CppBigNumPro(int32_t num) :flag(num >= 0)
     numVec.push_back(num);
 }
 
-CppBigNumPro::CppBigNumPro(uint32_t num) :flag(true)
+CppBigNumPro::CppBigNumPro(uint32_t num)
 {
-    numVec.push_back(num);
+    flag = true;
+    if (num != 0)
+    {
+        numVec.push_back(num);
+    }
 }
 
-CppBigNumPro::CppBigNumPro(bool inFlag, vector<uint32_t> &&inNumVec) : flag(inFlag)
+CppBigNumPro::CppBigNumPro(bool inFlag, deque<uint32_t> &&inNumVec)
 {
+    flag = inFlag;
     numVec.swap(inNumVec);
+
+    if (numVec.empty())
+    {
+        flag = true;
+    }
 }
 
-CppBigNumPro::CppBigNumPro(bool inFlag, const vector<uint32_t> &inNumVec) : flag(inFlag)
+CppBigNumPro::CppBigNumPro(bool inFlag, const deque<uint32_t> &inNumVec)
 {
+    flag = inFlag;
     numVec = inNumVec;
+
+    if (numVec.empty())
+    {
+        flag = true;
+    }
 }
 
 CppBigNumPro::~CppBigNumPro()
@@ -627,19 +653,20 @@ string CppBigNumPro::Value() const
 {
     CppBigNum bigNum;
     CppBigNum location(1);
+    bigNum.flag = flag;
 
     for (auto it = numVec.begin(); it != numVec.end(); ++it)
     {
         bigNum += location * (*it);
-        location * (1 << 32);
+        location *= ((uint64_t)1 << 32);
     }
 
-    return (flag ? "-" : "") + bigNum.Value();
+    return bigNum.Value();
 }
 
 const CppBigNumPro CppBigNumPro::operator+(const CppBigNumPro &right) const
 {
-    vector<uint32_t> result;
+    deque<uint32_t> result;
     int64_t currValue;              // 当前位计算的值，使用64位，不会溢出
     uint32_t lastValue = 0;         // 上一次计算的低位进位的值
     bool notEnd;
@@ -650,8 +677,8 @@ const CppBigNumPro CppBigNumPro::operator+(const CppBigNumPro &right) const
     {
         resultFlag = flag;
 
-        vector<uint32_t>::const_iterator it1 = this->numVec.begin();
-        vector<uint32_t>::const_iterator it2 = right.numVec.begin();
+        deque<uint32_t>::const_iterator it1 = this->numVec.begin();
+        deque<uint32_t>::const_iterator it2 = right.numVec.begin();
 
         // 逆序计算，包含进位
         while (true)
@@ -700,8 +727,8 @@ const CppBigNumPro CppBigNumPro::operator+(const CppBigNumPro &right) const
     else
     {
         // 符号不同，大数减小数
-        const vector<uint32_t> *pBigNumVec = NULL;
-        const vector<uint32_t> *pSmallNumVec = NULL;
+        const deque<uint32_t> *pBigNumVec = NULL;
+        const deque<uint32_t> *pSmallNumVec = NULL;
         if (numVecLess(numVec, right.numVec))
         {
             pBigNumVec = &right.numVec;
@@ -719,8 +746,8 @@ const CppBigNumPro CppBigNumPro::operator+(const CppBigNumPro &right) const
             return 0;
         }
 
-        vector<uint32_t>::const_iterator it1 = pBigNumVec->begin();
-        vector<uint32_t>::const_iterator it2 = pSmallNumVec->begin();
+        deque<uint32_t>::const_iterator it1 = pBigNumVec->begin();
+        deque<uint32_t>::const_iterator it2 = pSmallNumVec->begin();
 
         while (true)
         {
@@ -757,7 +784,7 @@ const CppBigNumPro CppBigNumPro::operator+(const CppBigNumPro &right) const
             if (currValue < 0)
             {
                 lastValue = 1;
-                currValue += (1 << 32);
+                currValue += ((uint64_t)1 << 32);
             }
 
             result.push_back(currValue);
@@ -776,73 +803,170 @@ const CppBigNumPro CppBigNumPro::operator*(const CppBigNumPro &right) const
 {
     CppBigNumPro bigNumResult;
 
-    //     if (numVec.empty() || right.numVec.empty())
-    //     {
-    //         return 0;
-    //     }
-    // 
-    //     // 优化，如果小于32位最大值，转换为64位数字计算
-    //     if (numVec.size() == 1 && right.numVec.size() == 1)
-    //     {
-    //         bigNumResult = static_cast<uint64_t>(*numVec.begin()) * (*right.numVec.begin());
-    //     }
-    //     else
-    //     {
-    //         CppBigNumPro result;                        // 第2个数的每一位与第1个数的乘积，算上进位值
-    //         vector<uint32_t>::const_iterator it1;
-    //         uint64_t currValue = 0;
-    //         uint64_t lastValue = 0;                     // 上次计算的进位值
-    // 
-    //         // 把2个数逐位相乘，保留进位
-    //         for (vector<uint32_t>::const_iterator it2 = right.numVec.begin();
-    //              it2 != right.numVec.end(); ++it2)
-    //         {
-    //             // 在前面补it2-right.numVec.begin()个0，表示进位，此轮it2的乘积直接放到这个result后面
-    //             result.numVec.assign(it2 - right.numVec.begin(), 0);
-    //             for (it1 = this->numVec.begin(); it1 != this->numVec.end(); ++it1)
-    //             {
-    //                 // 计算乘积
-    //                 currValue = static_cast<uint64_t>(*it1) * (*it2);
-    // 
-    //                 // 加上进位，这里不会超过64位的最大值
-    //                 currValue += lastValue;
-    // 
-    //                 // 计算下一位进位
-    //                 lastValue = currValue >> 32;
-    //                 currValue &= 0xFFFFFFFF;
-    // 
-    //                 // 加上结果
-    //                 result += currValue;
-    //             }
-    // 
-    //             // 剩余进位需要加上
-    //             if (lastValue != 0)
-    //             {
-    //                 result += lastValue + '0';
-    //                 lastValue = 0;
-    //             }
-    // 
-    //             // 加上进位值currValueMul,逆序并加到结果中
-    //             bigNumResult += CppBigNumPro(CppString::Reverse(result) + currValueMul);
-    //             currValueMul += "0";
-    //             result.clear();
-    //         }
-    //     }
-    // 
-    //     bigNumResult.flag = !(flag^right.flag);
-    // 
-    //     if (bigNumResult == "0")
-    //     {
-    //         bigNumResult.flag = true;
-    //     }
-    // 
+    if (numVec.empty() || right.numVec.empty())
+    {
+        return 0;
+    }
+
+    if (right == 1)
+    {
+        return *this;
+    }
+
+    if (right == -1)
+    {
+        return Negative();
+    }
+
+    // 优化，如果小于32位最大值，转换为64位数字计算
+    if (numVec.size() == 1 && right.numVec.size() == 1)
+    {
+        bigNumResult = static_cast<uint64_t>(*numVec.begin()) * (*right.numVec.begin());
+    }
+    else
+    {
+        CppBigNumPro result;                        // 第2个数的每一位与第1个数的乘积，算上进位值
+        deque<uint32_t>::const_iterator it1;
+        uint64_t currValue = 0;
+        uint64_t lastValue = 0;                     // 上次计算的进位值
+
+        // 把2个数逐位相乘，保留进位
+        for (deque<uint32_t>::const_iterator it2 = right.numVec.begin();
+             it2 != right.numVec.end(); ++it2)
+        {
+            // 在前面补it2-right.numVec.begin()个0，表示进位，此轮it2的乘积直接放到这个result后面
+            result.numVec.assign(it2 - right.numVec.begin(), 0);
+            for (it1 = this->numVec.begin(); it1 != this->numVec.end(); ++it1)
+            {
+                // 计算乘积
+                currValue = static_cast<uint64_t>(*it1) * (*it2);
+
+                // 加上进位，这里不会超过64位的最大值
+                currValue += lastValue;
+
+                // 计算下一位进位
+                lastValue = currValue >> 32;
+                currValue &= 0xFFFFFFFF;
+
+                // 加上结果
+                result.numVec.push_back(currValue);
+            }
+
+            // 剩余进位需要加上
+            if (lastValue != 0)
+            {
+                result.numVec.push_back(lastValue);
+                lastValue = 0;
+            }
+
+            // 将当前的结果加到最终结果中
+            bigNumResult += result;
+            result = 0;
+        }
+    }
+
+    bigNumResult.flag = !(flag^right.flag);
+
+    if (bigNumResult.numVec.empty())
+    {
+        bigNumResult.flag = true;
+    }
+
     return bigNumResult;
 }
 
 const CppBigNumPro CppBigNumPro::operator/(const CppBigNumPro &right) const
 {
-    // TODO
-    return 0;
+    if (right == 0 || numVecLess(numVec, right.numVec))
+    {
+        return 0;
+    }
+
+    if (right == 1)
+    {
+        return *this;
+    }
+
+    if (right == -1)
+    {
+        return Negative();
+    }
+
+    CppBigNumPro currNum;               // 当前被除数用于计算的部分
+    CppBigNumPro bigNumResult;          // 结果
+    CppBigNumPro rightNoFlag(right);    // 除数的正数形式
+    rightNoFlag.flag = true;
+
+    for (auto it = numVec.begin(); it != numVec.end(); ++it)
+    {
+        uint32_t currValue = 0;                     // 当前的结果数字
+        uint32_t currValueBegin = 0;                // 当前的结果数字二分查找起始值
+        uint32_t currValueEnd = (uint32_t)-1;       // 当前的结果数字二分查找结束值
+        if (currNum < rightNoFlag)
+        {
+            if (!currNum.numVec.empty())
+            {
+                currNum.numVec.push_front(0);
+            }
+            //currNum *= ((uint64_t)1 << 32);
+            currNum += *it;
+        }
+
+        // 二分查找，直到找到刚好比当前被除数部分小的值
+        if (currNum >= rightNoFlag)
+        {
+            CppBigNumPro multiValue = rightNoFlag;
+
+            while (true)
+            {
+                currValue = (currValueBegin + currValueEnd) / 2;
+
+                // 如果算下来还是begin的话，说明找到结果了
+                if (currValue == currValueBegin)
+                {
+                    break;
+                }
+
+                // 被除数 * 当前尝试的结果 > 当前要计算的除数，说明结果太大了
+                CppBigNumPro currNumTest = rightNoFlag * currValue;
+                if (currNumTest > currNum)
+                {
+                    currValueEnd = currValue;
+                    continue;
+                }
+
+                // 被除数 * 当前尝试的结果 < 当前要计算的除数，说明结果太小了
+                if (currNumTest < currNum)
+                {
+                    currValueBegin = currValue;
+                    continue;
+                }
+
+                // 被除数 * 当前尝试的结果 == 当前要计算的除数，说明刚好整除
+                if (currNumTest == currNum)
+                {
+                    break;
+                }
+            }
+        }
+
+        if (!bigNumResult.numVec.empty())
+        {
+            bigNumResult.numVec.push_front(0);
+        }
+        //bigNumResult *= ((uint64_t)1 << 32);
+        bigNumResult += currValue;
+        currNum -= rightNoFlag * currValue;
+    }
+
+    bigNumResult.flag = !(flag^right.flag);
+
+    if (bigNumResult.numVec.empty())
+    {
+        bigNumResult.flag = true;
+    }
+
+    return bigNumResult;
 }
 
 bool CppBigNumPro::operator<(const CppBigNumPro &right) const
@@ -907,9 +1031,19 @@ CppBigNumPro CppBigNumPro::operator%(const CppBigNumPro &right)
     return *this - divValue * right;
 }
 
+#include <iostream>
 void CppBigNumPro::GetNumFromStr(const string &num)
 {
-    // TODO
+    CppBigNum bigNum(num);
+    flag = bigNum.flag;
+
+    bigNum = bigNum.Abs();
+
+    while (bigNum > 0)
+    {
+        numVec.push_back(CppString::FromString<uint32_t>((bigNum % ((uint64_t)1 << 32)).Value()));
+        bigNum /= ((uint64_t)1 << 32);
+    }
 }
 
 CppBigNumPro CppBigNumPro::Negative() const
@@ -919,8 +1053,44 @@ CppBigNumPro CppBigNumPro::Negative() const
 
 CppBigNumPro CppBigNumPro::Sqrt() const
 {
-    // TODO
-    return 0;
+    // 负数，直接返回0
+    if (*this <= 0)
+    {
+        return 0;
+    }
+
+    // 给出前面几个小值的解法
+    static uint32_t SMALL_RESULT[] = { 0, 1, 1, 1, 2 };
+
+    if (*this < ARRAY_SIZE(SMALL_RESULT))
+    {
+        return SMALL_RESULT[CppString::FromString<uint32_t>(Value())];
+    }
+
+    // 牛顿法开方
+    CppBigNumPro k(1);             // 可任取 
+    CppBigNumPro k2 = k * k;
+    while (true)
+    {
+        if (*this >= k2)
+        {
+            if (*this - k2 <= k + k + 1)
+            {
+                return k;
+            }
+        }
+        else
+        {
+            if (k2 - *this <= k + k - 1)
+            {
+                return k - 1;
+            }
+        }
+
+        k = (k + *this / k) / 2;
+        k2 = k * k;
+        // printf(" k=%s\n", k.Value().c_str());
+    }
 }
 
 CppBigNumPro CppBigNumPro::Abs() const
@@ -928,7 +1098,7 @@ CppBigNumPro CppBigNumPro::Abs() const
     return CppBigNumPro(true, numVec);
 }
 
-bool CppBigNumPro::numVecLess(const vector<uint32_t> &numVec1, const vector<uint32_t> &numVec2)
+bool CppBigNumPro::numVecLess(const deque<uint32_t> &numVec1, const deque<uint32_t> &numVec2)
 {
     if (numVec1.size() < numVec2.size())
     {
@@ -1009,8 +1179,8 @@ bool CppBigNumPro::operator==(const CppBigNumPro &right) const
     }
 
     auto it1 = numVec.begin();
-    auto it2 = numVec.begin();
-    for (; it1 != numVec.end() && it2 != numVec.end(); ++it1, ++it2)
+    auto it2 = right.numVec.begin();
+    for (; it1 != numVec.end() && it2 != right.numVec.end(); ++it1, ++it2)
     {
         if (*it1 != *it2)
         {
@@ -1018,5 +1188,5 @@ bool CppBigNumPro::operator==(const CppBigNumPro &right) const
         }
     }
 
-    return it1 == numVec.end() && it2 == numVec.end();
+    return it1 == numVec.end() && it2 == right.numVec.end();
 }
