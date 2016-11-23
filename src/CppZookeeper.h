@@ -261,11 +261,11 @@ public:
         return m_zhandle;
     }
 
-    // AExist接口如果调用成功，节点存在，一定包含Stat数据
+    // AExists接口如果调用成功，节点存在，一定包含Stat数据
     int32_t AExists(const std::string &path, std::shared_ptr<StatCompletionFunType> stat_completion_fun, int watch = 0);
     int32_t AExists(const std::string &path, std::shared_ptr<StatCompletionFunType> stat_completion_fun, std::shared_ptr<WatcherFunType> watcher_fun);
-    int32_t Exist(const std::string &path, Stat *stat = NULL, int watch = 0);
-    int32_t Exist(const std::string &path, Stat *stat, std::shared_ptr<WatcherFunType> watcher_fun);
+    int32_t Exists(const std::string &path, Stat *stat = NULL, int watch = 0);
+    int32_t Exists(const std::string &path, Stat *stat, std::shared_ptr<WatcherFunType> watcher_fun);
 
     // Aget的数据内存由Zookeeper API分配和释放，调用者无需释放，Get的内存由调用者申请和释放
     // Get接口拿到的数据注意不会在Buf后面补"\0"的，因为它不一定是C字符串格式，如果确定是文本，需要调用者补零

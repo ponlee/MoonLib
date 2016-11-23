@@ -193,7 +193,7 @@ TEST(ZooKeeper, DISABLED_ZkManagerSyncTest)
     INFOR_LOG("删除节点[%s].", path_to_delete.c_str());
     ASSERT_EQ(ZOK, zk_manager.Delete(path_to_delete, -1));
     INFOR_LOG("节点[%s]不存在了.", path_to_delete.c_str());
-    ASSERT_EQ(ZNONODE, zk_manager.Exist(path_to_delete, NULL));
+    ASSERT_EQ(ZNONODE, zk_manager.Exists(path_to_delete, NULL));
 
     INFOR_LOG("获得根目录下所有节点，还有[%u]个.", COUNT - 1);
     ScopedStringVector children;
@@ -214,7 +214,7 @@ TEST(ZooKeeper, DISABLED_ZkManagerSyncTest)
 
     string path_to_op = CppString::ToString(COUNT - 1);
     INFOR_LOG("节点[%s]存在.", path_to_op.c_str());
-    ASSERT_EQ(ZOK, zk_manager.Exist(path_to_op, &node_stat));
+    ASSERT_EQ(ZOK, zk_manager.Exists(path_to_op, &node_stat));
 
     INFOR_LOG("获得节点[%s]数据.", path_to_op.c_str());
     string node_data(MAX_DATA_LEN, '\0');
@@ -696,7 +696,7 @@ TEST(ZooKeeper, DISABLED_ZkManagerSyncCustomWatcherTest)
 
     static const string WATCHER_PATH = TEST_ROOT_PATH + "/watcher_test";
     INFOR_LOG("Exist注册一个节点不存在的Watcher,路径[%s],在节点创建后和删除后会调用.", WATCHER_PATH.c_str());
-    ASSERT_EQ(ZNONODE, zk_manager.Exist(WATCHER_PATH, NULL,
+    ASSERT_EQ(ZNONODE, zk_manager.Exists(WATCHER_PATH, NULL,
                                         make_shared<WatcherFunType>([&](ZookeeperManager &zookeeper_manager,
                                                                         int type, int state, const char *path) -> bool
     {
@@ -1141,7 +1141,7 @@ TEST(ZooKeeper, DISABLED_ZkManagerSyncGlobalWatcherTest)
 
     static const string WATCHER_PATH = TEST_ROOT_PATH + "/watcher_test";
     INFOR_LOG("Exist注册一个节点不存在的Watcher,路径[%s],在节点创建后和删除后会调用.", WATCHER_PATH.c_str());
-    ASSERT_EQ(ZNONODE, zk_manager.Exist(WATCHER_PATH, NULL, 1));
+    ASSERT_EQ(ZNONODE, zk_manager.Exists(WATCHER_PATH, NULL, 1));
 
     INFOR_LOG("创建节点[%s],触发Watcher.", WATCHER_PATH.c_str());
     ASYNC_BEGIN;
@@ -1244,7 +1244,7 @@ TEST(ZooKeeper, DISABLED_ZkManagerSyncGlobalWatcherExistsTest)
 
     static const string WATCHER_PATH = TEST_ROOT_PATH + "/watcher_test";
     INFOR_LOG("Exist注册一个节点不存在的Watcher,路径[%s],在节点创建后和删除后会调用.", WATCHER_PATH.c_str());
-    ASSERT_EQ(ZNONODE, zk_manager.Exist(WATCHER_PATH, NULL, 1));
+    ASSERT_EQ(ZNONODE, zk_manager.Exists(WATCHER_PATH, NULL, 1));
 
     INFOR_LOG("创建节点[%s],触发Watcher.", WATCHER_PATH.c_str());
     ASYNC_BEGIN;

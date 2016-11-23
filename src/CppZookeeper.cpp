@@ -65,7 +65,7 @@ namespace zookeeper
 enum GlobalWatcherType
 {
     WATCHER_GET = 1,
-    WATCHER_EXIST = 3,
+    WATCHER_EXISTS = 3,
     WATCHER_GET_CHILDREN = 4
 };
 
@@ -283,7 +283,7 @@ int32_t ZookeeperManager::AExists(const string &path, shared_ptr<StatCompletionF
     if (watch != 0)
     {
         p_zookeeper_context->m_watch_path = abs_path;
-        p_zookeeper_context->m_global_watcher_add_type = WATCHER_EXIST;
+        p_zookeeper_context->m_global_watcher_add_type = WATCHER_EXISTS;
     }
 
     ret = zoo_aexists(m_zhandle, abs_path.c_str(), watch, &ZookeeperManager::InnerStatCompletion,
@@ -322,7 +322,7 @@ int32_t ZookeeperManager::AExists(const string &path, shared_ptr<StatCompletionF
     return ret;
 }
 
-int32_t ZookeeperManager::Exist(const string &path, Stat *stat, int watch /*= 0*/)
+int32_t ZookeeperManager::Exists(const string &path, Stat *stat, int watch /*= 0*/)
 {
     string abs_path = move(ChangeToAbsPath(path));
     int32_t ret = zoo_exists(m_zhandle, abs_path.c_str(), watch, stat);
@@ -331,7 +331,7 @@ int32_t ZookeeperManager::Exist(const string &path, Stat *stat, int watch /*= 0*
         if (watch != 0)
         {
             unique_lock<recursive_mutex> lock(m_global_watcher_path_type_lock);
-            m_global_watcher_path_type[abs_path] |= WATCHER_EXIST;
+            m_global_watcher_path_type[abs_path] |= WATCHER_EXISTS;
         }
     }
     else
@@ -342,7 +342,7 @@ int32_t ZookeeperManager::Exist(const string &path, Stat *stat, int watch /*= 0*
     return ret;
 }
 
-int32_t ZookeeperManager::Exist(const string &path, Stat *stat, shared_ptr<WatcherFunType> watcher_fun)
+int32_t ZookeeperManager::Exists(const string &path, Stat *stat, shared_ptr<WatcherFunType> watcher_fun)
 {
     int32_t ret = ZOK;
     shared_ptr<ZookeeperCtx> p_zookeeper_watcher_context = make_shared<ZookeeperCtx>(*this, ZookeeperCtx::EXIST);
@@ -1475,9 +1475,9 @@ void ZookeeperManager::InnerWatcher(zhandle_t *zh, int type, int state,
 
         if (type == ZOO_CHANGED_EVENT)
         {
-            if ((it->second & WATCHER_EXIST) == WATCHER_EXIST)
+            if ((it->second & WATCHER_EXISTS) == WATCHER_EXISTS)
             {
-                ret = manager.Exist(abs_path, NULL, 1);
+                ret = manager.Exists(abs_path, NULL, 1);
 
                 // 节点不存在，注册Watcher也是OK的
                 if (ret == ZNONODE)
@@ -1485,7 +1485,7 @@ void ZookeeperManager::InnerWatcher(zhandle_t *zh, int type, int state,
                     ret = ZOK;
                 }
 
-                stop_watcher_type_mask = ~WATCHER_EXIST;
+                stop_watcher_type_mask = ~WATCHER_EXISTS;
             }
             else if ((it->second & WATCHER_GET) == WATCHER_GET)
             {
@@ -1499,16 +1499,16 @@ void ZookeeperManager::InnerWatcher(zhandle_t *zh, int type, int state,
             {
                 // 不匹配路径对应的全局Watcher类型，停止Exists和Get类型重注册
                 p_context->m_is_stop = true;
-                stop_watcher_type_mask = ~WATCHER_EXIST;
+                stop_watcher_type_mask = ~WATCHER_EXISTS;
             }
         }
         else if (type == ZOO_DELETED_EVENT)
         {
-            if ((it->second & WATCHER_EXIST) == WATCHER_EXIST)
+            if ((it->second & WATCHER_EXISTS) == WATCHER_EXISTS)
             {
                 // 删掉GetChildren事件
-                it->second = WATCHER_EXIST;
-                ret = manager.Exist(abs_path, NULL, 1);
+                it->second = WATCHER_EXISTS;
+                ret = manager.Exists(abs_path, NULL, 1);
 
                 // 节点不存在，注册Watcher也是OK的
                 if (ret == ZNONODE)
@@ -1516,20 +1516,20 @@ void ZookeeperManager::InnerWatcher(zhandle_t *zh, int type, int state,
                     ret = ZOK;
                 }
 
-                stop_watcher_type_mask = ~WATCHER_EXIST;
+                stop_watcher_type_mask = ~WATCHER_EXISTS;
             }
             else
             {
                 // 没有Exists事件，停止所有类型重注册
                 p_context->m_is_stop = true;
-                stop_watcher_type_mask = ~WATCHER_EXIST & ~WATCHER_GET_CHILDREN;
+                stop_watcher_type_mask = ~WATCHER_EXISTS & ~WATCHER_GET_CHILDREN;
             }
         }
         else if (type == ZOO_CREATED_EVENT)
         {
-            if ((it->second & WATCHER_EXIST) == WATCHER_EXIST)
+            if ((it->second & WATCHER_EXISTS) == WATCHER_EXISTS)
             {
-                ret = manager.Exist(abs_path, NULL, 1);
+                ret = manager.Exists(abs_path, NULL, 1);
 
                 // 节点不存在，注册Watcher也是OK的
                 if (ret == ZNONODE)
@@ -1537,7 +1537,7 @@ void ZookeeperManager::InnerWatcher(zhandle_t *zh, int type, int state,
                     ret = ZOK;
                 }
 
-                stop_watcher_type_mask = ~WATCHER_EXIST;
+                stop_watcher_type_mask = ~WATCHER_EXISTS;
             }
             else if ((it->second & WATCHER_GET) == WATCHER_GET)
             {
@@ -1552,7 +1552,7 @@ void ZookeeperManager::InnerWatcher(zhandle_t *zh, int type, int state,
             {
                 // 不匹配路径对应的全局Watcher类型，停止Exists和Get类型重注册
                 p_context->m_is_stop = true;
-                stop_watcher_type_mask = ~WATCHER_EXIST;
+                stop_watcher_type_mask = ~WATCHER_EXISTS;
             }
         }
         else if (type == ZOO_CHILD_EVENT)
@@ -1672,7 +1672,7 @@ void ZookeeperManager::InnerStatCompletion(int rc, const Stat *stat, const void 
 
     // Exist还要额外考虑ZNONODE返回值
     if (rc == ZOK || (rc == ZNONODE
-                      && (up_context->m_global_watcher_add_type == WATCHER_EXIST
+                      && (up_context->m_global_watcher_add_type == WATCHER_EXISTS
                           || (up_context->m_custom_watcher_context != NULL
                               && up_context->m_custom_watcher_context->m_watcher_type == ZookeeperCtx::EXIST))))
     {
@@ -1881,10 +1881,10 @@ void ZookeeperManager::ReconnectResumeEnv()
             continue;
         }
 
-        // exist和get 二选一，优先exist
-        if ((it->second & WATCHER_EXIST) == WATCHER_EXIST)
+        // exists和get 二选一，优先exists
+        if ((it->second & WATCHER_EXISTS) == WATCHER_EXISTS)
         {
-            ret = Exist(it->first.c_str(), NULL, 1);
+            ret = Exists(it->first.c_str(), NULL, 1);
             if (ret == ZNONODE)
             {
                 ret = ZOK;
